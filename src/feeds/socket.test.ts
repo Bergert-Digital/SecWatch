@@ -5,6 +5,15 @@ import { querySocket } from "./socket.js";
 const body = readFileSync("tests/fixtures/socket/threats.atom", "utf-8");
 
 describe("querySocket", () => {
+  it("returns [] without throwing on 403 (feed unavailable)", async () => {
+    const fetchMock = vi.fn(async () => new Response("forbidden", { status: 403 }));
+    const advisories = await querySocket({
+      npmPackageNames: ["left-pad"],
+      fetch: fetchMock as never,
+    });
+    expect(advisories).toEqual([]);
+  });
+
   it("returns advisories only for npm packages in the inventory", async () => {
     const fetchMock = vi.fn(
       async () =>
