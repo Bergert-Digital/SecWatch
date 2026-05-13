@@ -17,11 +17,13 @@ interface Options {
 const KEV_URL =
   "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
 
+const USER_AGENT = "SecWatch/0.1.0 (+https://github.com/Bergert-Digital/SecWatch)";
+
 export async function queryKev({
   productNames,
   fetch = globalThis.fetch,
 }: Options): Promise<Advisory[]> {
-  const resp = await fetch(KEV_URL);
+  const resp = await fetch(KEV_URL, { headers: { "user-agent": USER_AGENT } });
   if (!resp.ok) throw new Error(`KEV fetch failed: ${resp.status}`);
   const body = (await resp.json()) as { vulnerabilities?: KevEntry[] };
 

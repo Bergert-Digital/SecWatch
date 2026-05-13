@@ -23,11 +23,16 @@ interface Options {
   fetch?: typeof globalThis.fetch;
 }
 
+const USER_AGENT = "SecWatch/0.1.0 (+https://github.com/Bergert-Digital/SecWatch)";
+
 export async function querySocket({
   npmPackageNames,
   fetch = globalThis.fetch,
 }: Options): Promise<Advisory[]> {
-  const resp = await fetch(SOCKET_URL);
+  const resp = await fetch(SOCKET_URL, { headers: { "user-agent": USER_AGENT } });
+  // Socket has restricted the public threat feed; 401/403 means "unavailable without auth".
+  // Treat as empty rather than fatal so the daily run isn't polluted with a stack trace.
+  if (resp.status === 401 || resp.status === 403) return [];
   if (!resp.ok) throw new Error(`Socket feed failed: ${resp.status}`);
   const text = await resp.text();
   const parser = new XMLParser({ ignoreAttributes: false });

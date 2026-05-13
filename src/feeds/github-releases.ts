@@ -34,17 +34,22 @@ interface Options {
   fetch?: typeof globalThis.fetch;
 }
 
+const USER_AGENT = "SecWatch/0.1.0 (+https://github.com/Bergert-Digital/SecWatch)";
+
 export async function queryGithubReleases({
   services,
   fetch = globalThis.fetch,
 }: Options): Promise<Advisory[]> {
-  const parser = new XMLParser({ ignoreAttributes: false });
+  // processEntities: false — Atom feeds with many `&amp;` etc. trip fast-xml-parser's
+  // internal entity-expansion cap (default 1000). We only do keyword matching against
+  // titles/content, so leaving entities as raw text is fine.
+  const parser = new XMLParser({ ignoreAttributes: false, processEntities: false });
   const all: Advisory[] = [];
   for (const svc of services) {
     const url = `https://github.com/${svc.github}/releases.atom`;
     let text: string;
     try {
-      const resp = await fetch(url);
+      const resp = await fetch(url, { headers: { "user-agent": USER_AGENT } });
       if (!resp.ok) continue;
       text = await resp.text();
     } catch {
