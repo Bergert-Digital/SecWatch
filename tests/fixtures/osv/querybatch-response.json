@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "vulns": [
+        {
+          "id": "GHSA-7gfc-8cq8-jh5f",
+          "summary": "Next.js authorization bypass",
+          "details": "An unauthenticated attacker can bypass authorization checks...",
+          "severity": [{ "type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" }],
+          "affected": [
+            {
+              "package": { "name": "next", "ecosystem": "npm" },
+              "ranges": [{ "type": "SEMVER", "events": [{ "introduced": "0" }, { "fixed": "14.2.31" }] }]
+            }
+          ],
+          "references": [{ "type": "ADVISORY", "url": "https://github.com/advisories/GHSA-7gfc-8cq8-jh5f" }],
+          "published": "2026-05-10T12:00:00Z"
+        }
+      ]
+    },
+    { "vulns": [] }
+  ]
+}

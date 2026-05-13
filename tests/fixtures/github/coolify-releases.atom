@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Release notes from coolify</title>
+  <entry>
+    <id>tag:github.com,2008:Repository/abc/v4.0.0-beta.425</id>
+    <title>v4.0.0-beta.425 — Security patch: SSRF in proxy config</title>
+    <updated>2026-05-12T08:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/coollabsio/coolify/releases/tag/v4.0.0-beta.425"/>
+    <content type="html">Fixes an SSRF vulnerability in the proxy config endpoint.</content>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/abc/v4.0.0-beta.424</id>
+    <title>v4.0.0-beta.424</title>
+    <updated>2026-05-10T08:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/coollabsio/coolify/releases/tag/v4.0.0-beta.424"/>
+    <content type="html">Bug fixes.</content>
+  </entry>
+</feed>

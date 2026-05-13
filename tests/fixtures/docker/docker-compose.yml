@@ -1,0 +1,7 @@
+services:
+  db:
+    image: postgres:16.4
+  cache:
+    image: redis:7.4-alpine
+  proxy:
+    image: traefik:latest  # floating — no version
