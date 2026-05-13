@@ -1,0 +1,11 @@
+# Self-hosted services we run on Coolify / Hetzner.
+# Update `current_version` manually after upgrades.
+- name: coolify
+  github: coollabsio/coolify
+  current_version: 4.0.0-beta.420
+- name: traefik
+  docker_image: traefik
+  current_version: "3.4"
+- name: postgres
+  docker_image: postgres
+  current_version: "16.4"

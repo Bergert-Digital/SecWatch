@@ -1,0 +1,7 @@
+# pinned
+django==4.2.7
+requests==2.32.0
+# range
+fastapi>=0.110,<0.120
+# editable / vcs (skip)
+-e git+https://github.com/x/y.git#egg=foo
