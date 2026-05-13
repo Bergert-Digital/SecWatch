@@ -42,8 +42,8 @@ export async function triageFindings({
     messages: [{ role: "user", content: prompt }],
   });
 
-  const text =
-    resp.content.find((b: { type: string }) => b.type === "text")?.text ?? "";
+  const textBlock = resp.content.find((b) => b.type === "text");
+  const text = textBlock && "text" in textBlock ? textBlock.text : "";
   let parsed: z.infer<typeof ResponseSchema>;
   try {
     const cleaned = text
