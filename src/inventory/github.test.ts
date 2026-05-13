@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createGithubClient } from "./github.js";
+import { createGithubClient, GithubRateLimitError } from "./github.js";
 
 function mockOctokit(
   overrides: Partial<{
@@ -51,5 +51,51 @@ describe("createGithubClient", () => {
     const gh = createGithubClient({ token: "x", org: "Bergert-Digital", octokit: oct as never });
     const text = await gh.readFile("a", "nope.json");
     expect(text).toBeNull();
+  });
+
+  it("throws GithubRateLimitError on 403 + rate-limit message", async () => {
+    const reset = 1700000000;
+    const oct = {
+      paginate: vi.fn(),
+      rest: {
+        repos: {
+          listForOrg: { endpoint: vi.fn() },
+          getContent: vi.fn(async () => {
+            throw Object.assign(new Error("API rate limit exceeded"), {
+              status: 403,
+              response: {
+                headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(reset) },
+                data: { message: "API rate limit exceeded for user ID 1" },
+              },
+            });
+          }),
+        },
+      },
+    };
+    const gh = createGithubClient({ token: "x", org: "Bergert-Digital", octokit: oct as never });
+    await expect(gh.readFile("a", "package.json")).rejects.toBeInstanceOf(
+      GithubRateLimitError,
+    );
+    try {
+      await gh.readFile("a", "package.json");
+    } catch (e) {
+      expect((e as GithubRateLimitError).resetAt?.getTime()).toBe(reset * 1000);
+    }
+  });
+
+  it("re-throws non-404, non-rate-limit errors", async () => {
+    const oct = {
+      paginate: vi.fn(),
+      rest: {
+        repos: {
+          listForOrg: { endpoint: vi.fn() },
+          getContent: vi.fn(async () => {
+            throw Object.assign(new Error("server error"), { status: 500 });
+          }),
+        },
+      },
+    };
+    const gh = createGithubClient({ token: "x", org: "Bergert-Digital", octokit: oct as never });
+    await expect(gh.readFile("a", "package.json")).rejects.toThrow("server error");
   });
 });

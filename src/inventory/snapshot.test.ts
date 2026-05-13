@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { buildInventory } from "./snapshot.js";
-import type { GithubClient } from "./github.js";
+import { GithubRateLimitError, type GithubClient } from "./github.js";
 
 const fakeServices = `
 - name: traefik
@@ -49,5 +49,36 @@ describe("buildInventory", () => {
     };
     const items = await buildInventory({ gh, servicesYaml: "" });
     expect(items.find((i) => i.name === "react")).toBeDefined();
+  });
+
+  it("aborts the file-read loop on GithubRateLimitError but still returns services", async () => {
+    let calls = 0;
+    const onRateLimit = vi.fn();
+    const gh: GithubClient = {
+      listRepos: vi.fn(async () => [
+        { name: "a", fullName: "Bergert-Digital/a", defaultBranch: "main", private: false },
+        { name: "b", fullName: "Bergert-Digital/b", defaultBranch: "main", private: false },
+        { name: "c", fullName: "Bergert-Digital/c", defaultBranch: "main", private: false },
+      ]),
+      readFile: vi.fn(async () => {
+        calls++;
+        if (calls === 1) return `{"dependencies":{"react":"18"}}`;
+        throw new GithubRateLimitError(new Date("2026-05-13T13:00:00Z"));
+      }),
+    };
+    const items = await buildInventory({
+      gh,
+      servicesYaml: `
+- name: postgres
+  docker_image: postgres
+  current_version: "16.4"
+`,
+      onRateLimit,
+    });
+    expect(onRateLimit).toHaveBeenCalledOnce();
+    expect(items.find((i) => i.name === "react")).toBeDefined();
+    expect(items.find((i) => i.name === "postgres")).toBeDefined();
+    // The 3rd repo (c) should not have been touched after the rate-limit short-circuit.
+    expect(calls).toBeLessThan(3 * 9); // 9 = MANIFESTS.length
   });
 });
