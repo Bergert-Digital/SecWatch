@@ -1,7 +1,10 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Transporter } from "nodemailer";
 import { eq, gte, sql, and, isNull } from "drizzle-orm";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 
 import { loadConfig } from "./config.js";
 import { createLogger } from "./logger.js";
@@ -246,11 +249,19 @@ export async function runPipeline(args: PipelineArgs): Promise<void> {
   }
 }
 
+function migrationsFolder(): string {
+  // /app/dist/main.js -> /app/src/db/migrations (Dockerfile copies migrations there)
+  return resolve(dirname(fileURLToPath(import.meta.url)), "../src/db/migrations");
+}
+
 export async function main(): Promise<void> {
   const cfg = loadConfig();
   const log = createLogger({ level: cfg.logLevel });
   log.info("main", "secwatch starting");
   const db = openDb(cfg.dbPath);
+  const folder = migrationsFolder();
+  log.info("main", "applying migrations", { folder });
+  migrate(db, { migrationsFolder: folder });
   const gh = createGithubClient({ token: cfg.githubToken, org: cfg.githubOrg });
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   const sdk = new Anthropic({ apiKey: cfg.anthropicKey });
