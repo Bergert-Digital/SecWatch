@@ -40,15 +40,19 @@ See [.env.example](./.env.example) for the full list.
 
 ## Coolify deployment
 
+SecWatch runs as an idle container (`CMD ["sleep", "infinity"]`) plus a Coolify **Scheduled Task** that invokes `node /app/dist/main.js` on the cron. The pipeline is **not** the container's main process.
+
 1. **Push the repo to GitHub.**
 2. In Coolify: **New Application** → Source: GitHub → branch `main`.
 3. Build type: **Dockerfile**.
-4. Resource type: **Scheduled** with cron `0 5 * * *` (UTC).
-5. **Persistent volume**: mount `/data` (this is where `secwatch.db` lives — Coolify backups will include it).
-6. **Environment variables**: set everything from `.env.example` in the Coolify UI.
-7. **Sender setup**: ensure your SMTP relay allows `SMTP_FROM_ADDRESS` to send through it (DNS + sender authentication on the relay).
-8. **PAT**: create a fine-grained GitHub PAT scoped to the `Bergert-Digital` org with `Contents: read` + `Metadata: read`. Include private repos.
-9. **First run**: trigger manually from Coolify. Verify `runs.status = 'ok'` via the Coolify exec terminal:
+4. **Persistent volume**: mount `/data` (where `secwatch.db` lives — Coolify backups will include it).
+5. **Environment variables**: set everything from `.env.example` in the Coolify UI.
+6. **Scheduled Task** (in the Application's "Scheduled Tasks" tab):
+   - Command: `node /app/dist/main.js`
+   - Frequency: `0 5 * * *` (UTC, ≈07:00 Europe/Berlin)
+7. **PAT**: create a fine-grained GitHub PAT scoped to the `Bergert-Digital` org with `Contents: read` + `Metadata: read`. Include private repos.
+8. **Sender setup**: ensure your SMTP relay allows `SMTP_FROM_ADDRESS` to send through it (DNS + sender authentication on the relay).
+9. **First run**: from the Application's Scheduled Tasks tab, click "Run now". Verify via Coolify's exec terminal:
    ```bash
    sqlite3 /data/secwatch.db "SELECT * FROM runs ORDER BY id DESC LIMIT 5"
    ```
