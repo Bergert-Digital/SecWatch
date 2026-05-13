@@ -24,4 +24,7 @@ COPY services.yaml ./services.yaml
 ENV NODE_ENV=production
 ENV TZ=Europe/Berlin
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "dist/main.js"]
+# The pipeline runs as a Coolify Scheduled Task (`node /app/dist/main.js`),
+# not as the container's main process. Keep the container idle so Coolify
+# doesn't restart-loop it.
+CMD ["sleep", "infinity"]
