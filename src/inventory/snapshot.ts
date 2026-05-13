@@ -1,4 +1,4 @@
-import type { GithubClient } from "./github.js";
+import { GithubRateLimitError, type GithubClient } from "./github.js";
 import type { InventoryItem } from "./types.js";
 import { parsePackageJson, parsePackageLock } from "./parsers/npm.js";
 import { parseComposerJson, parseComposerLock } from "./parsers/composer.js";
@@ -31,16 +31,18 @@ interface Options {
   gh: GithubClient;
   servicesYaml: string;
   onError?: (repo: string, file: string, error: unknown) => void;
+  onRateLimit?: (err: GithubRateLimitError) => void;
 }
 
 export async function buildInventory({
   gh,
   servicesYaml,
   onError,
+  onRateLimit,
 }: Options): Promise<InventoryItem[]> {
   const out: InventoryItem[] = [];
   const repos = await gh.listRepos();
-  for (const repo of repos) {
+  outer: for (const repo of repos) {
     for (const manifest of MANIFESTS) {
       try {
         const content = await gh.readFile(repo.name, manifest.path);
@@ -51,6 +53,10 @@ export async function buildInventory({
         });
         out.push(...items);
       } catch (e) {
+        if (e instanceof GithubRateLimitError) {
+          onRateLimit?.(e);
+          break outer;
+        }
         onError?.(repo.name, manifest.path, e);
       }
     }

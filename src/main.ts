@@ -115,7 +115,14 @@ export async function runPipeline(args: PipelineArgs): Promise<void> {
     .all();
 
   try {
-    const inventory = await buildInventory({ gh, servicesYaml: cfg.servicesYaml });
+    const inventory = await buildInventory({
+      gh,
+      servicesYaml: cfg.servicesYaml,
+      onRateLimit: (err) =>
+        log.warn("inventory", "github rate limit hit, aborting file reads", {
+          resetAt: err.resetAt?.toISOString() ?? null,
+        }),
+    });
     for (const it of inventory) {
       db.insert(inventoryTable)
         .values({

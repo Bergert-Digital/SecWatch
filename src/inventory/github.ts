@@ -25,6 +25,41 @@ const SILENT_LOG = {
   error: () => undefined,
 };
 
+export class GithubRateLimitError extends Error {
+  constructor(public readonly resetAt: Date | null) {
+    super(
+      resetAt
+        ? `GitHub rate limit exceeded, resets at ${resetAt.toISOString()}`
+        : "GitHub rate limit exceeded",
+    );
+    this.name = "GithubRateLimitError";
+  }
+}
+
+interface OctokitRequestError {
+  status?: number;
+  response?: {
+    headers?: Record<string, unknown>;
+    data?: { message?: string };
+  };
+}
+
+function isRateLimited(e: unknown): boolean {
+  const err = e as OctokitRequestError;
+  if (err.status !== 403) return false;
+  const rem = err.response?.headers?.["x-ratelimit-remaining"];
+  if (rem === "0" || rem === 0) return true;
+  const msg = err.response?.data?.message;
+  return typeof msg === "string" && /rate limit/i.test(msg);
+}
+
+function rateLimitResetAt(e: unknown): Date | null {
+  const err = e as OctokitRequestError;
+  const raw = err.response?.headers?.["x-ratelimit-reset"];
+  const epoch = typeof raw === "string" ? Number(raw) : typeof raw === "number" ? raw : NaN;
+  return Number.isFinite(epoch) ? new Date(epoch * 1000) : null;
+}
+
 export function createGithubClient(opts: Options): GithubClient {
   // Default log: silent. Octokit otherwise logs every 4xx to console (one line per missing
   // manifest = tens of thousands of lines per run, drowning out the actual errors we care about).
@@ -54,6 +89,7 @@ export function createGithubClient(opts: Options): GithubClient {
         return Buffer.from(data.content, "base64").toString("utf-8");
       } catch (e: unknown) {
         if ((e as { status?: number }).status === 404) return null;
+        if (isRateLimited(e)) throw new GithubRateLimitError(rateLimitResetAt(e));
         throw e;
       }
     },
