@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 import { loadConfig } from "./config.js";
-import { createLogger } from "./logger.js";
+import { createLogger, type Logger } from "./logger.js";
 import { openDb, type DbHandle } from "./db/client.js";
 import {
   runs as runsTable,
@@ -56,6 +56,29 @@ interface PipelineArgs {
   transport: Transporter;
   cfg: PipelineCfg;
   now: string;
+  log?: Logger;
+}
+
+const NOOP_LOGGER: Logger = {
+  debug: () => undefined,
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
+};
+
+async function runFeed<T>(
+  log: Logger,
+  source: string,
+  fn: () => Promise<T[]>,
+): Promise<T[]> {
+  try {
+    const out = await fn();
+    log.info("feeds", `${source} ok`, { count: out.length });
+    return out;
+  } catch (err) {
+    log.error("feeds", `${source} failed`, { error: err });
+    return [];
+  }
 }
 
 async function persistAdvisories(
@@ -83,6 +106,7 @@ async function persistAdvisories(
 
 export async function runPipeline(args: PipelineArgs): Promise<void> {
   const { db, gh, sdk, fetch, transport, cfg, now } = args;
+  const log = args.log ?? NOOP_LOGGER;
 
   const [run] = db
     .insert(runsTable)
@@ -112,11 +136,13 @@ export async function runPipeline(args: PipelineArgs): Promise<void> {
           .filter((s) => s.github)
           .map((s) => ({ name: s.name, github: s.github! }))
       : [];
+    log.info("inventory", "snapshot complete", { items: inventory.length });
+
     const [osvAdv, kevAdv, socketAdv, releaseAdv] = await Promise.all([
-      queryOsv({ items: inventory, fetch }).catch(() => []),
-      queryKev({ productNames: products, fetch }).catch(() => []),
-      querySocket({ npmPackageNames: npmNames, fetch }).catch(() => []),
-      queryGithubReleases({ services, fetch }).catch(() => []),
+      runFeed(log, "osv", () => queryOsv({ items: inventory, fetch })),
+      runFeed(log, "kev", () => queryKev({ productNames: products, fetch })),
+      runFeed(log, "socket", () => querySocket({ npmPackageNames: npmNames, fetch })),
+      runFeed(log, "github-releases", () => queryGithubReleases({ services, fetch })),
     ]);
     await persistAdvisories(db, [...osvAdv, ...kevAdv, ...socketAdv, ...releaseAdv], now);
 
@@ -284,6 +310,7 @@ export async function main(): Promise<void> {
         smtp: cfg.smtp,
       },
       now: new Date().toISOString(),
+      log,
     });
     log.info("main", "secwatch done");
   } catch (err) {
