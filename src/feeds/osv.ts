@@ -40,22 +40,16 @@ function cvssScoreToSeverity(score: string): Advisory["severity"] {
 interface Options {
   items: InventoryItem[];
   fetch?: typeof globalThis.fetch;
+  // Visible for testing — production should always use the default (1000, OSV's documented cap).
+  batchSize?: number;
 }
 
-export async function queryOsv({
-  items,
-  fetch = globalThis.fetch,
-}: Options): Promise<Advisory[]> {
-  const queries = items
-    .map((i) => {
-      const eco = ECOSYSTEM_MAP[i.ecosystem];
-      if (!eco || !i.version) return null;
-      return { version: i.version, package: { name: i.name, ecosystem: eco } };
-    })
-    .filter((q): q is NonNullable<typeof q> => q !== null);
+type OsvQuery = { version: string; package: { name: string; ecosystem: string } };
 
-  if (queries.length === 0) return [];
-
+async function fetchBatch(
+  fetch: typeof globalThis.fetch,
+  queries: OsvQuery[],
+): Promise<Array<{ vulns?: OsvVuln[] }>> {
   const resp = await fetch("https://api.osv.dev/v1/querybatch", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -63,9 +57,38 @@ export async function queryOsv({
   });
   if (!resp.ok) throw new Error(`OSV querybatch failed: ${resp.status}`);
   const body = (await resp.json()) as { results: Array<{ vulns?: OsvVuln[] }> };
+  return body.results;
+}
+
+export async function queryOsv({
+  items,
+  fetch = globalThis.fetch,
+  batchSize = 1000,
+}: Options): Promise<Advisory[]> {
+  const queries: OsvQuery[] = items
+    .map((i) => {
+      const eco = ECOSYSTEM_MAP[i.ecosystem];
+      if (!eco || !i.version) return null;
+      return { version: i.version, package: { name: i.name, ecosystem: eco } };
+    })
+    .filter((q): q is OsvQuery => q !== null);
+
+  if (queries.length === 0) return [];
+
+  // OSV /v1/querybatch caps at 1000 queries per request. Chunk and merge.
+  const batches: OsvQuery[][] = [];
+  for (let i = 0; i < queries.length; i += batchSize) {
+    batches.push(queries.slice(i, i + batchSize));
+  }
+
+  const results: Array<{ vulns?: OsvVuln[] }> = [];
+  for (const batch of batches) {
+    const part = await fetchBatch(fetch, batch);
+    results.push(...part);
+  }
 
   const seen = new Map<string, Advisory>();
-  for (const r of body.results) {
+  for (const r of results) {
     for (const v of r.vulns ?? []) {
       if (seen.has(v.id)) continue;
       const affected: AffectedRange[] = (v.affected ?? []).flatMap((a) => {

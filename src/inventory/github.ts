@@ -18,8 +18,17 @@ interface Options {
   octokit?: Octokit;
 }
 
+const SILENT_LOG = {
+  debug: () => undefined,
+  info: () => undefined,
+  warn: () => undefined,
+  error: () => undefined,
+};
+
 export function createGithubClient(opts: Options): GithubClient {
-  const oct = opts.octokit ?? new Octokit({ auth: opts.token });
+  // Default log: silent. Octokit otherwise logs every 4xx to console (one line per missing
+  // manifest = tens of thousands of lines per run, drowning out the actual errors we care about).
+  const oct = opts.octokit ?? new Octokit({ auth: opts.token, log: SILENT_LOG });
   const org = opts.org;
   return {
     async listRepos() {
