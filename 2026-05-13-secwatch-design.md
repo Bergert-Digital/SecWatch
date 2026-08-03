@@ -1,8 +1,36 @@
 # SecWatch — design
 
-**Status:** Draft
+**Status:** Superseded in part — see "Scope revision" below
 **Author:** Jonas (with Claude)
 **Date:** 2026-05-13
+
+## Scope revision (2026-08-03)
+
+Dependabot alerts + automated security fixes were enabled across every non-archived
+repo in `Bergert-Digital`, which covers the repo-dependency half of this design
+better than SecWatch did. That half was removed:
+
+- **Deleted:** `feeds/osv.ts`, `feeds/socket.ts`, the npm/composer/python/go parsers,
+  `match/semver.ts`, and the `semver` dependency.
+- **Kept:** container base images (`Dockerfile`, `docker-compose.yml`), `services.yaml`,
+  CISA KEV, per-service release feeds, triage, digest email, Monday heartbeat.
+
+Two bugs surfaced while doing this, both of which meant the *unique* half had never
+worked in production:
+
+1. `kev.ts`, `socket.ts` and `github-releases.ts` all emitted `affected: []`, and
+   `computeNewFindings` only produced findings by iterating `affected`. Those three
+   feeds could never match anything.
+2. `services.yaml` items carry `ecosystem: "service"`, which no branch of the matcher
+   handled, so the self-hosted services were inert too.
+
+Feeds now resolve advisories against inventory names at fetch time and populate
+`affected`, and matching is name-based (`match/product.ts`) rather than semver-based.
+KEV's substring matching was tightened to word-start matching to stop `go` matching
+`mongodb`; it still lets `postgres` match `PostgreSQL`.
+
+Sections below describe the original, wider design. Where they mention OSV, Socket,
+or package ecosystems, they are historical.
 
 ## Problem
 

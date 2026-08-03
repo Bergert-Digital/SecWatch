@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { openDb, type DbHandle } from "../db/client.js";
 import { advisories, findings } from "../db/schema.js";
+import type { AffectedProduct } from "../feeds/types.js";
+import type { InventoryItem } from "../inventory/types.js";
 import { computeNewFindings } from "./findings.js";
 
 function applySchema(db: DbHandle): void {
@@ -18,85 +20,96 @@ function applySchema(db: DbHandle): void {
   `);
 }
 
+const NOW = "2026-05-13T05:00:00Z";
+
+const SERVICE_ITEM: InventoryItem = {
+  ecosystem: "service",
+  name: "traefik",
+  version: "3.4",
+  sourceRepo: "services.yaml",
+  sourceFile: "services.yaml",
+};
+
+const DOCKER_ITEM: InventoryItem = {
+  ecosystem: "docker",
+  name: "postgres",
+  version: "16.4",
+  sourceRepo: "Bergert-Digital/feldova",
+  sourceFile: "docker-compose.yml",
+};
+
 describe("computeNewFindings", () => {
   let db: DbHandle;
+
+  function seedAdvisory(source: string, sourceId: string, affected: AffectedProduct[]): void {
+    db.insert(advisories)
+      .values({
+        source,
+        sourceId,
+        severity: "critical",
+        summary: `advisory ${sourceId}`,
+        details: "...",
+        affectedJson: JSON.stringify(affected),
+        url: null,
+        publishedAt: null,
+        fetchedAt: NOW,
+      })
+      .run();
+  }
+
   beforeEach(() => {
     db = openDb(":memory:");
     applySchema(db);
-    db.insert(advisories)
-      .values({
-        source: "osv",
-        sourceId: "GHSA-test",
-        severity: "high",
-        summary: "Bad bug in next",
-        details: "...",
-        affectedJson: JSON.stringify([
-          {
-            ecosystem: "npm",
-            packageName: "next",
-            ranges: [{ type: "SEMVER", introduced: "0", fixed: "14.2.31" }],
-          },
-        ]),
-        url: null,
-        publishedAt: null,
-        fetchedAt: "2026-05-13T05:00:00Z",
-      })
-      .run();
   });
 
-  it("inserts new findings and returns them", async () => {
+  it("matches a KEV advisory against a self-hosted service", async () => {
+    seedAdvisory("kev", "CVE-2026-1", [{ packageName: "traefik" }]);
+    const newOnes = await computeNewFindings({ db, inventory: [SERVICE_ITEM], now: NOW });
+    expect(newOnes).toHaveLength(1);
+    expect(newOnes[0]!.packageName).toBe("traefik");
+    expect(newOnes[0]!.ecosystem).toBe("service");
+  });
+
+  it("matches a security release advisory against a container image", async () => {
+    seedAdvisory("github-release", "rel-1", [{ packageName: "postgres" }]);
+    const newOnes = await computeNewFindings({ db, inventory: [DOCKER_ITEM], now: NOW });
+    expect(newOnes).toHaveLength(1);
+    expect(newOnes[0]!.sourceFile).toBe("docker-compose.yml");
+  });
+
+  it("does not match an unrelated product", async () => {
+    seedAdvisory("kev", "CVE-2026-2", [{ packageName: "redis" }]);
     const newOnes = await computeNewFindings({
       db,
-      inventory: [
-        {
-          ecosystem: "npm",
-          name: "next",
-          version: "14.2.3",
-          sourceRepo: "Bergert-Digital/feldova",
-          sourceFile: "package.json",
-        },
-      ],
-      now: "2026-05-13T05:00:00Z",
+      inventory: [SERVICE_ITEM, DOCKER_ITEM],
+      now: NOW,
     });
-    expect(newOnes.length).toBe(1);
-    expect(newOnes[0]!.packageName).toBe("next");
-    expect(db.select().from(findings).all()).toHaveLength(1);
+    expect(newOnes).toEqual([]);
+  });
+
+  it("respects an explicit affected-version list", async () => {
+    seedAdvisory("kev", "CVE-2026-3", [{ packageName: "postgres", versions: ["16.3"] }]);
+    const newOnes = await computeNewFindings({ db, inventory: [DOCKER_ITEM], now: NOW });
+    expect(newOnes).toEqual([]);
+  });
+
+  it("reports the same product once per place it is installed", async () => {
+    seedAdvisory("kev", "CVE-2026-4", [{ packageName: "postgres" }]);
+    const other: InventoryItem = { ...DOCKER_ITEM, sourceRepo: "Bergert-Digital/show" };
+    const newOnes = await computeNewFindings({
+      db,
+      inventory: [DOCKER_ITEM, other],
+      now: NOW,
+    });
+    expect(newOnes).toHaveLength(2);
   });
 
   it("does not re-insert on a second run", async () => {
-    const args = {
-      db,
-      inventory: [
-        {
-          ecosystem: "npm" as const,
-          name: "next",
-          version: "14.2.3",
-          sourceRepo: "Bergert-Digital/feldova",
-          sourceFile: "package.json",
-        },
-      ],
-      now: "2026-05-13T05:00:00Z",
-    };
+    seedAdvisory("kev", "CVE-2026-5", [{ packageName: "traefik" }]);
+    const args = { db, inventory: [SERVICE_ITEM], now: NOW };
     await computeNewFindings(args);
     const second = await computeNewFindings(args);
-    expect(second.length).toBe(0);
+    expect(second).toEqual([]);
     expect(db.select().from(findings).all()).toHaveLength(1);
-  });
-
-  it("does not match when version is patched", async () => {
-    const newOnes = await computeNewFindings({
-      db,
-      inventory: [
-        {
-          ecosystem: "npm",
-          name: "next",
-          version: "14.2.31",
-          sourceRepo: "Bergert-Digital/feldova",
-          sourceFile: "package.json",
-        },
-      ],
-      now: "2026-05-13T05:00:00Z",
-    });
-    expect(newOnes.length).toBe(0);
   });
 });

@@ -1,15 +1,31 @@
 # SecWatch
 
-Daily security advisory monitor for the `Bergert-Digital` GitHub organization and a hand-maintained list of self-hosted services.
+Daily security monitor for the infrastructure Dependabot cannot see: **container base images** across the `Bergert-Digital` GitHub org, and a hand-maintained list of **self-hosted services**.
 
 Each day at 07:00 Europe/Berlin (`0 5 * * *` UTC) it:
 
 1. Lists non-archived repos in `Bergert-Digital` (incl. private).
-2. Reads each repo's dependency manifests (`package.json`, `composer.json`, `requirements.txt`, `pyproject.toml`, `go.mod`, `Dockerfile`, `docker-compose.yml`) plus a `services.yaml` for self-hosted infra.
-3. Queries OSV.dev, CISA KEV, the Socket.dev threat feed, and per-service GitHub release atom feeds.
+2. Reads each repo's `Dockerfile` / `docker-compose.yml` for base images, plus `services.yaml` for self-hosted infra.
+3. Queries CISA KEV and per-service GitHub release atom feeds.
 4. Computes new matches (idempotent in SQLite).
 5. Ranks them via Claude Haiku 4.5: `critical / probably_relevant / probably_not / noise`.
 6. Emails a digest via SMTP. Mondays always send (weekly heartbeat or recap). Other days send only if there's news.
+
+## Scope: what this deliberately does not do
+
+Package dependencies (`package.json`, `composer.json`, `requirements.txt`, `go.mod`, …) are **Dependabot's job**. Dependabot alerts and automated security fixes are enabled on every non-archived repo in the org, and it resolves versions from the real dependency graph — more accurately than manifest parsing can. SecWatch used to duplicate that via OSV and the Socket.dev feed; that half was removed.
+
+What is left is the part Dependabot structurally cannot cover:
+
+| Gap | Why Dependabot misses it |
+|---|---|
+| Self-hosted services (Coolify, Traefik, Postgres on Hetzner) | They live in no repo |
+| Container base image CVEs | Dependabot does version bumps for Docker, but GHSA does not map CVEs to image tags, so there are no security alerts |
+| CISA KEV (actively exploited) | Not a Dependabot signal |
+| One aggregated push digest | Dependabot alerts are per-repo pull |
+| Heartbeat | Dependabot's silence is ambiguous |
+
+Because matching is by product **name** (KEV and release notes carry no machine-readable version ranges), name collisions are the expected false-positive mode. Triage is prompted to call them out.
 
 ## Local development
 
@@ -59,7 +75,7 @@ SecWatch runs as an idle container (`CMD ["sleep", "infinity"]`) plus a Coolify 
 
 ## Maintaining `services.yaml`
 
-Update `current_version` after upgrading a self-hosted service. The file is read on every run.
+This file is now the main input, not a side note — anything running on the Hetzner boxes that is not listed here is unmonitored. Update `current_version` after upgrading a service. The file is read on every run.
 
 ```yaml
 - name: coolify
@@ -73,10 +89,12 @@ Update `current_version` after upgrading a self-hosted service. The file is read
   current_version: "16.4"
 ```
 
+`github:` subscribes the service to its release-notes feed (entries mentioning security/CVE/patch become advisories). `docker_image:` is informational. Both name forms feed KEV matching.
+
 ## Design
 
 See [2026-05-13-secwatch-design.md](./2026-05-13-secwatch-design.md).
 
 ## Cost
 
-< €30/year total: Anthropic Haiku (~€25), SMTP free tier, GitHub API free, Coolify is existing infra.
+< €10/year total: Anthropic Haiku (a handful of findings a month, not hundreds), SMTP free tier, GitHub API free, Coolify is existing infra.

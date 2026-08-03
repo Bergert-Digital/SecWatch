@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { isDockerAffected } from "./docker.js";
+import { isProductAffected } from "./product.js";
 
-describe("isDockerAffected", () => {
+describe("isProductAffected", () => {
   it("matches exact name + version", () => {
     expect(
-      isDockerAffected({
+      isProductAffected({
         installedName: "postgres",
         installedVersion: "16.4",
         affectedName: "postgres",
@@ -13,9 +13,9 @@ describe("isDockerAffected", () => {
     ).toBe(true);
   });
 
-  it("does not match different name", () => {
+  it("does not match a different name", () => {
     expect(
-      isDockerAffected({
+      isProductAffected({
         installedName: "postgres",
         installedVersion: "16.4",
         affectedName: "redis",
@@ -24,9 +24,9 @@ describe("isDockerAffected", () => {
     ).toBe(false);
   });
 
-  it("returns false when installed version is not in the list", () => {
+  it("returns false when the installed version is not in the list", () => {
     expect(
-      isDockerAffected({
+      isProductAffected({
         installedName: "postgres",
         installedVersion: "16.5",
         affectedName: "postgres",
@@ -35,13 +35,23 @@ describe("isDockerAffected", () => {
     ).toBe(false);
   });
 
-  it("matches when affectedVersions is empty (whole image affected)", () => {
+  it("matches when no version list is given (whole product affected)", () => {
     expect(
-      isDockerAffected({
+      isProductAffected({
         installedName: "postgres",
         installedVersion: "16.4",
         affectedName: "postgres",
-        affectedVersions: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("matches an unknown installed version rather than dropping it silently", () => {
+    expect(
+      isProductAffected({
+        installedName: "traefik",
+        installedVersion: null,
+        affectedName: "traefik",
+        affectedVersions: ["3.4"],
       }),
     ).toBe(true);
   });

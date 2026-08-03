@@ -1,9 +1,5 @@
 import { GithubRateLimitError, type GithubClient } from "./github.js";
 import type { InventoryItem } from "./types.js";
-import { parsePackageJson, parsePackageLock } from "./parsers/npm.js";
-import { parseComposerJson, parseComposerLock } from "./parsers/composer.js";
-import { parseRequirementsTxt, parsePyprojectToml } from "./parsers/python.js";
-import { parseGoMod } from "./parsers/go.js";
 import { parseDockerfile, parseCompose } from "./parsers/docker.js";
 import { loadServices } from "./services.js";
 
@@ -15,16 +11,13 @@ interface ManifestSpec {
   ) => InventoryItem[];
 }
 
+// Package manifests are deliberately absent: Dependabot reads those from the
+// dependency graph. Container base images are what it cannot alert on.
 const MANIFESTS: ManifestSpec[] = [
-  { path: "package.json", parse: parsePackageJson },
-  { path: "package-lock.json", parse: parsePackageLock },
-  { path: "composer.json", parse: parseComposerJson },
-  { path: "composer.lock", parse: parseComposerLock },
-  { path: "requirements.txt", parse: parseRequirementsTxt },
-  { path: "pyproject.toml", parse: parsePyprojectToml },
-  { path: "go.mod", parse: parseGoMod },
   { path: "Dockerfile", parse: parseDockerfile },
   { path: "docker-compose.yml", parse: parseCompose },
+  { path: "docker-compose.yaml", parse: parseCompose },
+  { path: "compose.yaml", parse: parseCompose },
 ];
 
 interface Options {
