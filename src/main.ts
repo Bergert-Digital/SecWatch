@@ -21,9 +21,7 @@ import { createGithubClient, type GithubClient } from "./inventory/github.js";
 import { buildInventory } from "./inventory/snapshot.js";
 import { loadServiceEntries } from "./inventory/services.js";
 
-import { queryOsv } from "./feeds/osv.js";
 import { queryKev } from "./feeds/kev.js";
-import { querySocket } from "./feeds/socket.js";
 import { queryGithubReleases } from "./feeds/github-releases.js";
 import type { Advisory } from "./feeds/types.js";
 
@@ -136,8 +134,7 @@ export async function runPipeline(args: PipelineArgs): Promise<void> {
         .run();
     }
 
-    const products = inventory.map((i) => i.name);
-    const npmNames = inventory.filter((i) => i.ecosystem === "npm").map((i) => i.name);
+    const products = [...new Set(inventory.map((i) => i.name))];
     const services = cfg.servicesYaml.trim()
       ? loadServiceEntries(cfg.servicesYaml)
           .filter((s) => s.github)
@@ -145,13 +142,11 @@ export async function runPipeline(args: PipelineArgs): Promise<void> {
       : [];
     log.info("inventory", "snapshot complete", { items: inventory.length });
 
-    const [osvAdv, kevAdv, socketAdv, releaseAdv] = await Promise.all([
-      runFeed(log, "osv", () => queryOsv({ items: inventory, fetch })),
+    const [kevAdv, releaseAdv] = await Promise.all([
       runFeed(log, "kev", () => queryKev({ productNames: products, fetch })),
-      runFeed(log, "socket", () => querySocket({ npmPackageNames: npmNames, fetch })),
       runFeed(log, "github-releases", () => queryGithubReleases({ services, fetch })),
     ]);
-    await persistAdvisories(db, [...osvAdv, ...kevAdv, ...socketAdv, ...releaseAdv], now);
+    await persistAdvisories(db, [...kevAdv, ...releaseAdv], now);
 
     const newFindings = await computeNewFindings({ db, inventory, now });
 
