@@ -6,6 +6,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    target-branch: development
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -16,9 +17,11 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    target-branch: development
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
       day: monday
+    target-branch: development
