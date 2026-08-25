@@ -2,7 +2,7 @@ FROM node:26-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache python3 make g++ sqlite-dev
 COPY package.json pnpm-lock.yaml* package-lock.json* ./
-RUN corepack enable && \
+RUN npm install -g "$(node -p 'require("./package.json").packageManager')" && \
     if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; \
     else npm ci; fi
 
@@ -11,7 +11,7 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++ sqlite-dev
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN corepack enable && \
+RUN npm install -g "$(node -p 'require("./package.json").packageManager')" && \
     if [ -f pnpm-lock.yaml ]; then pnpm build; else npm run build; fi
 
 FROM node:26-alpine AS runtime
