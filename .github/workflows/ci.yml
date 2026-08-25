@@ -29,3 +29,4 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+# smoke-test: verify docker job runs
