@@ -2,16 +2,8 @@ import { eq } from "drizzle-orm";
 import type { DbHandle } from "../db/client.js";
 import { advisories, findings } from "../db/schema.js";
 import type { InventoryItem } from "../inventory/types.js";
-import type { AffectedRange } from "../feeds/types.js";
-import { isAffected } from "./semver.js";
-import { isDockerAffected } from "./docker.js";
-
-const OSV_ECO_MAP: Record<string, string> = {
-  npm: "npm",
-  composer: "Packagist",
-  pypi: "PyPI",
-  go: "Go",
-};
+import type { AffectedProduct } from "../feeds/types.js";
+import { isProductAffected } from "./product.js";
 
 interface Args {
   db: DbHandle;
@@ -38,32 +30,15 @@ export async function computeNewFindings({
   const out: NewFinding[] = [];
 
   for (const adv of allAdvisories) {
-    const affected = JSON.parse(adv.affectedJson) as AffectedRange[];
+    const affected = JSON.parse(adv.affectedJson) as AffectedProduct[];
     for (const a of affected) {
       for (const item of inventory) {
-        const expectedEco = OSV_ECO_MAP[item.ecosystem];
-        let match = false;
-        if (item.ecosystem === "docker") {
-          if (a.packageName === item.name && item.version) {
-            const versions = a.versions ?? [];
-            match = isDockerAffected({
-              installedName: item.name,
-              installedVersion: item.version,
-              affectedName: a.packageName,
-              affectedVersions: versions,
-            });
-          }
-        } else {
-          if (!expectedEco || a.ecosystem !== expectedEco) continue;
-          if (a.packageName !== item.name) continue;
-          if (!item.version) continue;
-          match = isAffected({
-            installedVersion: item.version,
-            ranges: a.ranges,
-            versions: a.versions,
-            ecosystem: item.ecosystem,
-          });
-        }
+        const match = isProductAffected({
+          installedName: item.name,
+          installedVersion: item.version,
+          affectedName: a.packageName,
+          affectedVersions: a.versions,
+        });
         if (!match) continue;
 
         const existing = db

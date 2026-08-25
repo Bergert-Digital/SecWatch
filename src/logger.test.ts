@@ -26,7 +26,7 @@ describe("createLogger", () => {
   it("serializes Error objects", () => {
     const writes: string[] = [];
     const log = createLogger({ level: "info", write: (s) => writes.push(s) });
-    log.error("feeds", "osv fetch failed", { error: new Error("boom") });
+    log.error("feeds", "kev fetch failed", { error: new Error("boom") });
     const entry = JSON.parse(writes[0]!);
     expect(entry.error.message).toBe("boom");
     expect(entry.error.stack).toBeTypeOf("string");

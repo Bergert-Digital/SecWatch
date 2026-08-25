@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.28.1",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
@@ -21,7 +23,6 @@
     "drizzle-orm": "^0.36.0",
     "fast-xml-parser": "^4.5.0",
     "nodemailer": "^6.9.16",
-    "semver": "^7.6.0",
     "yaml": "^2.6.0",
     "zod": "^3.23.0"
   },
@@ -29,13 +30,15 @@
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^22.7.0",
     "@types/nodemailer": "^6.4.0",
-    "@types/semver": "^7.5.0",
     "drizzle-kit": "^0.28.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
   }
 }

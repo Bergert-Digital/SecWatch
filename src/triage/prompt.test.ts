@@ -6,29 +6,44 @@ describe("buildTriagePrompt", () => {
     const prompt = buildTriagePrompt([
       {
         findingId: 1,
-        advisorySourceId: "GHSA-x",
-        advisorySeverity: "high",
-        advisorySummary: "Auth bypass",
+        advisorySourceId: "CVE-2026-1",
+        advisorySeverity: "critical",
+        advisorySummary: "Traefik auth bypass",
         advisoryDetails: "Long details here",
-        packageName: "next",
-        matchedVersion: "14.2.3",
-        ecosystem: "npm",
-        affected: [
-          {
-            ecosystem: "npm",
-            packageName: "next",
-            ranges: [{ type: "SEMVER", introduced: "0", fixed: "14.2.31" }],
-          },
-        ],
-        sourceRepo: "Bergert-Digital/feldova",
-        sourceFile: "package.json",
+        packageName: "traefik",
+        matchedVersion: "3.4",
+        ecosystem: "service",
+        affected: [{ packageName: "traefik", versions: ["3.4", "3.3"] }],
+        sourceRepo: "services.yaml",
+        sourceFile: "services.yaml",
       },
     ]);
     expect(prompt).toContain("finding_id: 1");
-    expect(prompt).toContain("GHSA-x");
-    expect(prompt).toContain("next@14.2.3");
+    expect(prompt).toContain("CVE-2026-1");
+    expect(prompt).toContain("traefik@3.4");
+    expect(prompt).toContain("traefik: 3.4, 3.3");
     expect(prompt).toContain("Be conservative");
     expect(prompt).toMatch(/Output JSON:/);
+  });
+
+  it("says 'all versions' when the advisory gives no version list", () => {
+    const prompt = buildTriagePrompt([
+      {
+        findingId: 1,
+        advisorySourceId: "CVE-2026-2",
+        advisorySeverity: null,
+        advisorySummary: "x",
+        advisoryDetails: null,
+        packageName: "postgres",
+        matchedVersion: null,
+        ecosystem: "docker",
+        affected: [{ packageName: "postgres" }],
+        sourceRepo: "Bergert-Digital/feldova",
+        sourceFile: "docker-compose.yml",
+      },
+    ]);
+    expect(prompt).toContain("postgres: all versions");
+    expect(prompt).toContain("postgres@(unpinned)");
   });
 
   it("includes all findings in one prompt", () => {
@@ -41,7 +56,7 @@ describe("buildTriagePrompt", () => {
         advisoryDetails: null,
         packageName: "a",
         matchedVersion: "1",
-        ecosystem: "npm",
+        ecosystem: "docker",
         affected: [],
         sourceRepo: "r",
         sourceFile: "f",
@@ -54,7 +69,7 @@ describe("buildTriagePrompt", () => {
         advisoryDetails: null,
         packageName: "b",
         matchedVersion: "2",
-        ecosystem: "npm",
+        ecosystem: "service",
         affected: [],
         sourceRepo: "r",
         sourceFile: "f",

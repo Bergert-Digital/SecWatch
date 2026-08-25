@@ -68,7 +68,10 @@ export async function queryGithubReleases({
         severity: "unknown",
         summary: `${svc.name}: ${title}`,
         details: body || null,
-        affected: [],
+        // The release belongs to exactly one service. No version list: a security
+        // release means every version below it is suspect, and we have no reliable
+        // way to compare a service's hand-maintained version against a release tag.
+        affected: [{ packageName: svc.name }],
         url: entryLink(e),
         publishedAt: e.updated ?? null,
       });
