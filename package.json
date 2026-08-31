@@ -17,18 +17,18 @@
     "db:migrate": "node --import tsx src/db/migrate.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.120.0",
+    "@anthropic-ai/sdk": "^0.122.0",
     "@octokit/rest": "^21.0.0",
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.2",
     "fast-xml-parser": "^4.5.0",
-    "nodemailer": "^9.0.5",
+    "nodemailer": "^9.0.6",
     "yaml": "^2.6.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.4.0",
     "@types/nodemailer": "^6.4.0",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.23.12",
